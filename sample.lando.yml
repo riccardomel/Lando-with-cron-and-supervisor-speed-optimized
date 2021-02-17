@@ -1,0 +1,59 @@
+name: test
+excludes:
+  - vendor
+  - node_modules
+recipe: laravel
+config:
+  php: "7.4"
+  via: nginx
+  database: mariadb
+mailhog:
+  - mailhog.lndo.site
+domain: lndo.site
+services:
+  appserver:
+    type: php:7.4
+    webroot: public
+    xdebug: true
+    config:
+      php: .lando/php.ini
+    build_as_root:
+      - apt-get update -y
+      - apt-get install cron -y
+      - apt-get install supervisor -y
+      - cp -f /app/.lando/docker-php-entrypoint.sh /usr/local/bin/docker-php-entrypoint
+      - cp -f /app/.lando/laravel-worker.conf /etc/supervisor/conf.d/laravel-worker.conf
+    run_as_root:
+    #  - service cron start
+      - service supervisor start
+      - supervisorctl start laravel-worker:*
+    run:
+      - "cd $LANDO_MOUNT && composer install"
+      - crontab /app/.lando/cron.txt
+  node:
+    type: node:10.14.2
+    build:
+      - npm install
+  database:
+    type: mariadb:10.4
+    portforward: 3307
+    creds:
+      user: evolve
+      password: evolve2020@
+      database: test
+  mailhog:
+    type: mailhog
+    hogfrom:
+      - appserver
+    portforward: true
+  phpmyAdmin:
+    type: phpmyadmin:5.0
+    hosts:
+      - database.test.internal
+    mariadb104:
+      type: mariadb:10.4
+tooling:
+  npm:
+    service: node
+  node:
+    service: node
